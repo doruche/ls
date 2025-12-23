@@ -41,7 +41,6 @@ pub fn main() !void {
     const trait = arena.allocator();
     defer arena.deinit();
     const args = try std.process.argsAlloc(trait);
-    defer std.process.argsFree(trait, args);
 
     if (args.len == 2 and std.mem.eql(u8, args[1], "-h")) {
         std.debug.print("usage: ls [path] [...]\n", .{});
@@ -58,17 +57,13 @@ pub fn main() !void {
     }
 
     var dirs = try std.ArrayList([]const u8).initCapacity(trait, npaths);
-    defer dirs.deinit(trait);
 
     for (paths.items) |path| {
         const abs_path = try std.fs.realpathAlloc(trait, path);
-        defer trait.free(abs_path);
         const stat = try std.fs.cwd().statFile(abs_path);
         switch (stat.kind) {
             .directory => {
-                // clone an absolute path to dirs
-                const cloned = try trait.dupe(u8, abs_path);
-                try dirs.append(trait, cloned);
+                try dirs.append(trait, abs_path);
             },
             else => {
                 try printer.print("{s} ", .{path});
@@ -80,8 +75,6 @@ pub fn main() !void {
         try printer.print("\n", .{});
     }
     for (dirs.items) |dir| {
-        defer trait.free(dir);
-
         if (dirs.items.len > 1) {
             try printer.print("{s}:\n", .{dir});
         }
